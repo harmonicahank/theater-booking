@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>劇聚公演團隊｜《撕結痂》線上售票劃位</title>
+  <title>劇聚公演團隊｜《撕結痂》線上售票劃位系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .seat {
@@ -33,6 +33,7 @@
       <p class="text-sm text-slate-500 mt-1">地點：國立中央大學文學三館黑盒子劇場</p>
     </header>
 
+    <!-- 步驟 1: 場次與票種選擇 -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
       <div>
         <label class="block text-sm font-semibold mb-1 text-slate-700">選擇場次</label>
@@ -64,7 +65,7 @@
       </div>
     </div>
 
-    <!-- 座位圖（贊助票才顯示） -->
+    <!-- 步驟 2: 座位圖（贊助票專用） -->
     <div id="seatSection" class="border border-slate-200 rounded-xl p-5 mb-6 bg-slate-50">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h2 class="font-bold text-slate-800">黑盒子劇場座位圖（請點選空位）</h2>
@@ -89,13 +90,13 @@
       </div>
     </div>
 
-    <!-- 普通票提醒（普通票才顯示） -->
+    <!-- 普通票提醒（普通票專用） -->
     <div id="freeNoticeSection" class="hidden border border-amber-200 bg-amber-50 rounded-xl p-4 mb-6 text-sm text-amber-900">
       <div class="font-bold mb-1">⚠️ 普通票登記須知</div>
-      <p>普通票採<strong>「演出當天現場報到依序劃位」</strong>。送出表單即完成報名登記，演出當天前台人員將引導您依到場順序入座。若欲提前鎖定心儀座位，請切換至「贊助票」。</p>
+      <p>普通票採<strong>「演出當天現場報到依序劃位」</strong>。送出表單即完成預約登記，演出當天前台人員將引導您依到場順序入座。若欲提前選定座位，請切換至「贊助票」。</p>
     </div>
 
-    <!-- 資料表單 -->
+    <!-- 步驟 3: 填寫資訊表單 -->
     <form id="bookingForm" class="space-y-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -119,7 +120,7 @@
         </div>
       </div>
 
-      <!-- 贊助票匯款欄位 -->
+      <!-- 匯款欄位（贊助票才顯示） -->
       <div id="paymentFields" class="border-t pt-4 space-y-3">
         <div class="bg-blue-50 p-3.5 rounded-lg text-xs text-blue-900 leading-relaxed">
           <p class="font-bold mb-1">🏦 贊助款匯款資訊（NT\$ 50/張）：</p>
@@ -138,57 +139,62 @@
   </div>
 
   <script>
-    // ⚠️ 替換成你在第一階段複製的 Google Apps Script 網址
+    // ==============================================================
+    // ⚠️ 只要把下面引號裡的網址，換成你的 Google Apps Script 部署網址即可！
+    // ==============================================================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymlxl9AZSQV4dnprE5lSu9sa1Nn6VrrzBQcIu09Z7xSvWBVdoQrf3KjSOe2lVZvqJJEg/exec";
 
-    // 預設保留席（攝影與劇組保留）
-    const fixedReserved = ['A1', 'A2', 'A18', 'A19', 'E9', 'B19', 'C16', 'C19'];
     let serverOccupiedSeats = [];
+    let serverReservedSeats = [];
     let selectedSeat = null;
 
-// 載入已售出座位與額滿場次
+    // 向 Google 試算表取得最新狀態（售出、保留席、額滿場次）
     async function loadOccupiedSeats() {
       try {
         const res = await fetch(SCRIPT_URL);
         const data = await res.json();
         
         serverOccupiedSeats = data.occupiedSeats || [];
+        serverReservedSeats = data.reservedSeats || [];
         const fullSessions = data.fullSessions || [];
 
-        // 檢查場次下拉選單：若額滿就加上「已額滿」並禁用 (disabled)
         const select = document.getElementById('sessionSelect');
         Array.from(select.options).forEach(opt => {
           if (fullSessions.includes(opt.value)) {
             opt.disabled = true;
-            if (!opt.text.includes('【已額滿】')) {
-              opt.text = opt.text + ' ⚠️【已額滿】';
-            }
+            if (!opt.text.includes('【已額滿】')) opt.text += ' ⚠️【已額滿】';
           } else {
             opt.disabled = false;
           }
         });
 
-        // 如果目前選中的剛好是已額滿場次，自動跳到下一個可選的場次
+        // 若預設場次已額滿，自動切換至下一個可選場次
         if (select.selectedOptions[0].disabled) {
           const availableOpt = Array.from(select.options).find(opt => !opt.disabled);
           if (availableOpt) {
             select.value = availableOpt.value;
           } else {
-            alert('所有場次均已全數額滿！感謝支持！');
+            alert('所有場次均已全數額滿！感謝熱烈支持！');
             document.getElementById('bookingForm').style.display = 'none';
           }
         }
 
       } catch (e) {
-        console.log("尚無外部座位資料，使用預設值");
+        console.warn("載入資料時發生提醒：", e);
       }
       renderSeats();
     }
 
+    // 繪製黑盒子劇場座位圖
     function renderSeats() {
       const currentSession = document.getElementById('sessionSelect').value;
+      
       const occupiedThisSession = serverOccupiedSeats
         .filter(item => item.session === currentSession)
+        .map(item => item.seat);
+
+      const reservedThisSession = serverReservedSeats
+        .filter(item => item.session === currentSession || item.session === '全部場次')
         .map(item => item.seat);
 
       const rows = ['A', 'B', 'C', 'D', 'E'];
@@ -213,9 +219,9 @@
             el.textContent = seatId;
             el.dataset.seat = seatId;
 
-            if (fixedReserved.includes(seatId)) {
+            if (reservedThisSession.includes(seatId)) {
               el.className = 'seat seat-reserved';
-              el.title = '保留席';
+              el.title = '大會保留席';
             } else if (occupiedThisSession.includes(seatId)) {
               el.className = 'seat seat-occupied';
               el.title = '已有人選位';
@@ -237,7 +243,7 @@
       });
     }
 
-    // 場次切換重繪座位
+    // 場次切換
     document.getElementById('sessionSelect').addEventListener('change', () => {
       selectedSeat = null;
       document.getElementById('selectedSeatLabel').textContent = '尚未選擇';
@@ -261,13 +267,13 @@
       });
     });
 
-    // 提交表單送進 Google 試算表
+    // 提交報名
     document.getElementById('bookingForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const ticketType = document.querySelector('input[name="ticketType"]:checked').value;
 
       if (ticketType === 'sponsor' && !selectedSeat) {
-        alert('請先在座位圖上點選您欲劃位的座位！');
+        alert('請先在座位圖上點選您要劃位的座位！');
         return;
       }
       if (ticketType === 'sponsor' && !document.getElementById('bankLast5').value.trim()) {
@@ -306,7 +312,7 @@
           alert('⚠️ ' + result.message);
           btn.disabled = false;
           btn.textContent = '確認送出劃位與登記';
-          loadOccupiedSeats(); // 重新整理座位圖
+          loadOccupiedSeats();
         }
       } catch (err) {
         alert('送出失敗，請檢查網路連線或稍後再試。');
@@ -315,6 +321,7 @@
       }
     });
 
+    // 網頁開啟自動載入最新座位狀態
     loadOccupiedSeats();
   </script>
 </body>
