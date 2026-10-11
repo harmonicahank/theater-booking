@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>劇聚公演團隊｜《撕結痂》線上售票劃位</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .seat {
+      width: 32px;
+      height: 32px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+    .seat-available { background-color: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; cursor: pointer; }
+    .seat-available:hover { background-color: #e2e8f0; }
+    .seat-selected { background-color: #2563eb !important; color: white !important; font-weight: bold; }
+    .seat-occupied { background-color: #94a3b8; color: white; cursor: not-allowed; }
+    .seat-reserved { background-color: #b45309; color: white; cursor: not-allowed; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 p-4 md:p-8 min-h-screen">
+
+  <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
+    <header class="border-b pb-4 mb-6">
+      <span class="text-xs font-bold bg-rose-100 text-rose-700 px-3 py-1 rounded-full">2026 夏季首演</span>
+      <h1 class="text-2xl md:text-3xl font-extrabold mt-2 text-slate-900">《撕結痂》線上票務與劃位系統</h1>
+      <p class="text-sm text-slate-500 mt-1">地點：國立中央大學文學三館黑盒子劇場</p>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div>
+        <label class="block text-sm font-semibold mb-1 text-slate-700">選擇場次</label>
+        <select id="sessionSelect" class="w-full border rounded-lg p-2.5 bg-slate-50 border-slate-300">
+          <option value="場次一（5/20）">場次一：5/20（三）19:00入場／19:30開演</option>
+          <option value="場次二（5/21）">場次二：5/21（四）19:00入場／19:30開演</option>
+          <option value="場次三（5/22）">場次三：5/22（五）19:00入場／19:30開演</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold mb-1 text-slate-700">選擇票種</label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex items-center p-3 border rounded-lg cursor-pointer bg-blue-50/50 border-blue-500">
+            <input type="radio" name="ticketType" value="sponsor" checked class="text-blue-600">
+            <div class="ml-2">
+              <span class="block text-sm font-bold text-slate-900">贊助票 (50元)</span>
+              <span class="block text-xs text-slate-500">線上選位 + 貼紙</span>
+            </div>
+          </label>
+          <label class="flex items-center p-3 border rounded-lg cursor-pointer border-slate-200">
+            <input type="radio" name="ticketType" value="free" class="text-blue-600">
+            <div class="ml-2">
+              <span class="block text-sm font-bold text-slate-900">普通票 (免費)</span>
+              <span class="block text-xs text-slate-500">演出當天現場劃位</span>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 座位圖（贊助票才顯示） -->
+    <div id="seatSection" class="border border-slate-200 rounded-xl p-5 mb-6 bg-slate-50">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h2 class="font-bold text-slate-800">黑盒子劇場座位圖（請點選空位）</h2>
+        <div class="flex items-center gap-3 text-xs">
+          <span class="flex items-center gap-1"><span class="w-3 h-3 seat-available rounded"></span> 可選</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 seat-selected rounded"></span> 已選取</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 seat-occupied rounded"></span> 已售出</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 seat-reserved rounded"></span> 保留席</span>
+        </div>
+      </div>
+
+      <div class="w-full bg-slate-300 text-center py-1.5 text-xs font-bold text-slate-700 tracking-widest rounded mb-6">
+        舞 臺 STAGE
+      </div>
+
+      <div class="overflow-x-auto pb-4">
+        <div class="flex justify-center gap-6 min-w-[650px]" id="seatGrid"></div>
+      </div>
+
+      <div class="mt-2 text-sm text-slate-600 font-medium">
+        已選座位：<span id="selectedSeatLabel" class="text-blue-600 font-bold text-base">尚未選擇</span>
+      </div>
+    </div>
+
+    <!-- 普通票提醒（普通票才顯示） -->
+    <div id="freeNoticeSection" class="hidden border border-amber-200 bg-amber-50 rounded-xl p-4 mb-6 text-sm text-amber-900">
+      <div class="font-bold mb-1">⚠️ 普通票登記須知</div>
+      <p>普通票採<strong>「演出當天現場報到依序劃位」</strong>。送出表單即完成報名登記，演出當天前台人員將引導您依到場順序入座。若欲提前鎖定心儀座位，請切換至「贊助票」。</p>
+    </div>
+
+    <!-- 資料表單 -->
+    <form id="bookingForm" class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700">姓名 *</label>
+          <input type="text" id="custName" required class="w-full border rounded-lg p-2.5 mt-1 border-slate-300" placeholder="例如：陳大明" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700">聯絡電話 *</label>
+          <input type="tel" id="custPhone" required class="w-full border rounded-lg p-2.5 mt-1 border-slate-300" placeholder="例如：0912345678" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700">電子信箱 (收取電子票券) *</label>
+          <input type="email" id="custEmail" required class="w-full border rounded-lg p-2.5 mt-1 border-slate-300" placeholder="yourname@gmail.com" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700">學號／系所（校外人士填無）</label>
+          <input type="text" id="studentId" class="w-full border rounded-lg p-2.5 mt-1 border-slate-300" placeholder="例如：中文系 / 111201001" />
+        </div>
+      </div>
+
+      <!-- 贊助票匯款欄位 -->
+      <div id="paymentFields" class="border-t pt-4 space-y-3">
+        <div class="bg-blue-50 p-3.5 rounded-lg text-xs text-blue-900 leading-relaxed">
+          <p class="font-bold mb-1">🏦 贊助款匯款資訊（NT\$ 50/張）：</p>
+          <p>中華郵政 (700) ｜ 帳號：02810940228110</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700">匯款帳號末五碼 *</label>
+          <input type="text" id="bankLast5" maxlength="5" class="w-full border rounded-lg p-2.5 mt-1 border-slate-300" placeholder="請填寫轉帳帳號後 5 碼以利核對" />
+        </div>
+      </div>
+
+      <button type="submit" id="submitBtn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-lg shadow-md transition duration-200">
+        確認送出劃位與登記
+      </button>
+    </form>
+  </div>
+
+  <script>
+    // ⚠️ 替換成你在第一階段複製的 Google Apps Script 網址
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymlxl9AZSQV4dnprE5lSu9sa1Nn6VrrzBQcIu09Z7xSvWBVdoQrf3KjSOe2lVZvqJJEg/exec";
+
+    // 預設保留席（攝影與劇組保留）
+    const fixedReserved = ['A1', 'A2', 'A18', 'A19', 'E9', 'B19', 'C16', 'C19'];
+    let serverOccupiedSeats = [];
+    let selectedSeat = null;
+
+    // 載入已售出座位
+    async function loadOccupiedSeats() {
+      try {
+        const res = await fetch(SCRIPT_URL);
+        const data = await res.json();
+        serverOccupiedSeats = data.occupiedSeats || [];
+      } catch (e) {
+        console.log("尚無外部座位資料，使用預設值");
+      }
+      renderSeats();
+    }
+
+    function renderSeats() {
+      const currentSession = document.getElementById('sessionSelect').value;
+      const occupiedThisSession = serverOccupiedSeats
+        .filter(item => item.session === currentSession)
+        .map(item => item.seat);
+
+      const rows = ['A', 'B', 'C', 'D', 'E'];
+      const grid = document.getElementById('seatGrid');
+      grid.innerHTML = '';
+
+      const blocks = [
+        { cols: [1, 2, 3] },
+        { cols: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] },
+        { cols: [16, 17, 18, 19] }
+      ];
+
+      blocks.forEach(block => {
+        const bDiv = document.createElement('div');
+        bDiv.className = 'flex flex-col gap-2';
+        rows.forEach(r => {
+          const rDiv = document.createElement('div');
+          rDiv.className = 'flex gap-1.5';
+          block.cols.forEach(c => {
+            const seatId = `${r}${c}`;
+            const el = document.createElement('div');
+            el.textContent = seatId;
+            el.dataset.seat = seatId;
+
+            if (fixedReserved.includes(seatId)) {
+              el.className = 'seat seat-reserved';
+              el.title = '保留席';
+            } else if (occupiedThisSession.includes(seatId)) {
+              el.className = 'seat seat-occupied';
+              el.title = '已有人選位';
+            } else {
+              el.className = 'seat seat-available';
+              if (selectedSeat === seatId) el.classList.add('seat-selected');
+              el.onclick = () => {
+                document.querySelectorAll('.seat-selected').forEach(s => s.classList.remove('seat-selected'));
+                selectedSeat = seatId;
+                el.classList.add('seat-selected');
+                document.getElementById('selectedSeatLabel').textContent = seatId;
+              };
+            }
+            rDiv.appendChild(el);
+          });
+          bDiv.appendChild(rDiv);
+        });
+        grid.appendChild(bDiv);
+      });
+    }
+
+    // 場次切換重繪座位
+    document.getElementById('sessionSelect').addEventListener('change', () => {
+      selectedSeat = null;
+      document.getElementById('selectedSeatLabel').textContent = '尚未選擇';
+      renderSeats();
+    });
+
+    // 票種切換
+    document.querySelectorAll('input[name="ticketType"]').forEach(r => {
+      r.addEventListener('change', (e) => {
+        const isSponsor = e.target.value === 'sponsor';
+        document.getElementById('seatSection').classList.toggle('hidden', !isSponsor);
+        document.getElementById('paymentFields').classList.toggle('hidden', !isSponsor);
+        document.getElementById('freeNoticeSection').classList.toggle('hidden', isSponsor);
+
+        if (!isSponsor) {
+          selectedSeat = null;
+          document.getElementById('selectedSeatLabel').textContent = '現場依序劃位';
+        } else {
+          document.getElementById('selectedSeatLabel').textContent = '尚未選擇';
+        }
+      });
+    });
+
+    // 提交表單送進 Google 試算表
+    document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const ticketType = document.querySelector('input[name="ticketType"]:checked').value;
+
+      if (ticketType === 'sponsor' && !selectedSeat) {
+        alert('請先在座位圖上點選您欲劃位的座位！');
+        return;
+      }
+      if (ticketType === 'sponsor' && !document.getElementById('bankLast5').value.trim()) {
+        alert('贊助票請填寫轉帳帳號末五碼！');
+        return;
+      }
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = '資料傳送與劃位中，請稍候...';
+
+      const payload = {
+        session: document.getElementById('sessionSelect').value,
+        ticketType: ticketType,
+        seat: ticketType === 'sponsor' ? selectedSeat : '現場劃位',
+        name: document.getElementById('custName').value,
+        phone: document.getElementById('custPhone').value,
+        email: document.getElementById('custEmail').value,
+        studentId: document.getElementById('studentId').value,
+        bankLast5: ticketType === 'sponsor' ? document.getElementById('bankLast5').value : ''
+      };
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+
+        if (result.result === 'success') {
+          alert(ticketType === 'sponsor' 
+            ? `🎉 劃位登記成功！\n場次：${payload.session}\n座位：${payload.seat}\n請保留您的匯款明細，我們將寄發電子票券至您的信箱。` 
+            : `🎉 普通票登記成功！\n場次：${payload.session}\n演出當日請提早至前台依到場順序劃位入場。`);
+          location.reload();
+        } else {
+          alert('⚠️ ' + result.message);
+          btn.disabled = false;
+          btn.textContent = '確認送出劃位與登記';
+          loadOccupiedSeats(); // 重新整理座位圖
+        }
+      } catch (err) {
+        alert('送出失敗，請檢查網路連線或稍後再試。');
+        btn.disabled = false;
+        btn.textContent = '確認送出劃位與登記';
+      }
+    });
+
+    loadOccupiedSeats();
+  </script>
+</body>
+</html>
