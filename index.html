@@ -146,12 +146,39 @@
     let serverOccupiedSeats = [];
     let selectedSeat = null;
 
-    // 載入已售出座位
+// 載入已售出座位與額滿場次
     async function loadOccupiedSeats() {
       try {
         const res = await fetch(SCRIPT_URL);
         const data = await res.json();
+        
         serverOccupiedSeats = data.occupiedSeats || [];
+        const fullSessions = data.fullSessions || [];
+
+        // 檢查場次下拉選單：若額滿就加上「已額滿」並禁用 (disabled)
+        const select = document.getElementById('sessionSelect');
+        Array.from(select.options).forEach(opt => {
+          if (fullSessions.includes(opt.value)) {
+            opt.disabled = true;
+            if (!opt.text.includes('【已額滿】')) {
+              opt.text = opt.text + ' ⚠️【已額滿】';
+            }
+          } else {
+            opt.disabled = false;
+          }
+        });
+
+        // 如果目前選中的剛好是已額滿場次，自動跳到下一個可選的場次
+        if (select.selectedOptions[0].disabled) {
+          const availableOpt = Array.from(select.options).find(opt => !opt.disabled);
+          if (availableOpt) {
+            select.value = availableOpt.value;
+          } else {
+            alert('所有場次均已全數額滿！感謝支持！');
+            document.getElementById('bookingForm').style.display = 'none';
+          }
+        }
+
       } catch (e) {
         console.log("尚無外部座位資料，使用預設值");
       }
