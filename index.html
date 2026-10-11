@@ -140,7 +140,7 @@
 
   <script>
     // ==============================================================
-    // ⚠️ 只要把下面引號裡的網址，換成你的 Google Apps Script 部署網址即可！
+    // ⚠️ 請務必將下方引號內的網址換成你的 Google Apps Script 網頁應用程式網址！
     // ==============================================================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymlxl9AZSQV4dnprE5lSu9sa1Nn6VrrzBQcIu09Z7xSvWBVdoQrf3KjSOe2lVZvqJJEg/exec";
 
@@ -150,6 +150,12 @@
 
     // 向 Google 試算表取得最新狀態（售出、保留席、額滿場次）
     async function loadOccupiedSeats() {
+      if (SCRIPT_URL.includes("AKfycb...")) {
+        console.warn("⚠️ 提醒：請在 index.html 替換 SCRIPT_URL 為您真正的 Apps Script 網址！");
+        renderSeats();
+        return;
+      }
+
       try {
         const res = await fetch(SCRIPT_URL);
         const data = await res.json();
